@@ -26,7 +26,8 @@
 
         #game-world {
             position: absolute;
-            transition: transform 0.1s ease;
+            will-change: transform;
+            transform: translate3d(0, 0, 0);
         }
 
         .box {
@@ -92,7 +93,7 @@
             }
 
             #intro-text {
-                font-size: 16px;  /* Smaller intro text */
+                font-size: 16px;  
             }
         }
         
@@ -119,9 +120,9 @@
         class Game {
             constructor() {
                 this.isMobile = window.innerWidth <= 768;
-                this.playerSize = 2;  // Set once
-                this.boxSize = this.isMobile ? 10 : 15;  // Set once
-                this.matrixSize = this.isMobile ? 30 : 50;  // Set once
+                this.playerSize = 2;
+                this.boxSize = this.isMobile ? 10 : 15;
+                this.matrixSize = this.isMobile ? 30 : 50;
                 
                 this.container = document.getElementById('game-container');
                 this.world = document.getElementById('game-world');
@@ -129,6 +130,12 @@
                 this.player = null;
                 this.isMoving = false;
                 this.moveInterval = null;
+                this.cameraX = 0;
+                this.cameraY = 0;
+                this.targetCameraX = 0;
+                this.targetCameraY = 0;
+                this.lastFrameTime = 0;
+
                 this.bibleVerse = "Oh, that I knew where I might find him! That I might come even to his dwelling! I would lay my case before him and fill my mouth with arguments. I would know what he would answer me and understand what he would say to me... Behold, I go forward, but he is not there, and backward, but I do not perceive him; on the left hand when he is working, I do not behold him; he turns to the right hand, but I do not see him. After this Job opened his mouth and cursed the day of his birth. And Job said: 'Let the day perish on which I was born, and the night that said, \"A man is conceived.\" Let that day be darkness! May God above not seek it, nor light shine upon it... Why did I not die at birth, come out from the womb and expire? Then the LORD answered Job out of the whirlwind and said: 'Who is this that darkens counsel by words without knowledge? Dress for action like a man; I will question you, and you make it known to me. Where were you when I laid the foundation of the earth? Tell me, if you have understanding.'";
 
                 this.updateGridSize();
@@ -138,6 +145,37 @@
                 });
 
                 this.showIntro();
+                requestAnimationFrame(this.animate.bind(this));
+            }
+
+            lerp(start, end, factor) {
+                return start + (end - start) * factor;
+            }
+
+            animate(timestamp) {
+                if (!this.lastFrameTime) this.lastFrameTime = timestamp;
+                const deltaTime = (timestamp - this.lastFrameTime) / 1000;
+                this.lastFrameTime = timestamp;
+
+                if (this.player) {
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    const playerCenterX = (this.player.x + this.playerSize / 2) * this.boxSize;
+                    const playerCenterY = (this.player.y + this.playerSize / 2) * this.boxSize;
+                    
+                    this.targetCameraX = centerX - playerCenterX;
+                    this.targetCameraY = centerY - playerCenterY;
+
+                    const dampingFactor = this.isMoving ? 0.2 : 0.1;
+                    this.cameraX = this.lerp(this.cameraX, this.targetCameraX, dampingFactor);
+                    this.cameraY = this.lerp(this.cameraY, this.targetCameraY, dampingFactor);
+
+                    const transformX = Math.round(this.cameraX * 100) / 100;
+                    const transformY = Math.round(this.cameraY * 100) / 100;
+                    this.world.style.transform = `translate3d(${transformX}px, ${transformY}px, 0)`;
+                }
+
+                requestAnimationFrame(this.animate.bind(this));
             }
 
             showIntro() {
@@ -152,7 +190,7 @@
                     
                     setTimeout(() => {
                         introText.textContent = isMobile ? 
-                            "Touch the screen to go forward" : 
+                            "Touch and hold the screen to go forward" : 
                             "Use arrow keys to go forward";
                         introText.style.opacity = '1';
 
@@ -171,12 +209,9 @@
 
             updateGridSize() {
                 this.isMobile = window.innerWidth <= 768;
-
-                this.playerSize = 2; 
-
+                this.playerSize = 2;
                 this.boxSize = this.isMobile ? 10 : 15;
                 this.matrixSize = this.isMobile ? 30 : 50;
-
                 this.gridSize = {
                     width: Math.floor(window.innerWidth / this.boxSize),
                     height: Math.floor(window.innerHeight / this.boxSize)
@@ -301,9 +336,9 @@
                 const centerY = window.innerHeight / 2;
                 const playerCenterX = (this.player.x + this.playerSize / 2) * this.boxSize;
                 const playerCenterY = (this.player.y + this.playerSize / 2) * this.boxSize;
-                const offsetX = centerX - playerCenterX;
-                const offsetY = centerY - playerCenterY;
-                this.world.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+                
+                this.targetCameraX = centerX - playerCenterX;
+                this.targetCameraY = centerY - playerCenterY;
             }
 
             findConnectedBoxes(x, y, dx, dy) {
@@ -385,9 +420,10 @@
                 }
 
                 if (dx !== 0 || dy !== 0) {
+                    this.movePlayer(dx, dy);
                     this.moveInterval = setInterval(() => {
                         this.movePlayer(dx, dy);
-                    }, 100); // Adjust this value to change movement speed
+                    }, 80);
                 }
             }
 
