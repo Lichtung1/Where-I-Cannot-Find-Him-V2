@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Where I Cannot Find Him</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            background: #000;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            color: #fff;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            flex-grow: 1;
+            background: #000;
+            overflow: hidden;
+        }
+
+        #game-world {
+            position: absolute;
+            transition: transform 0.1s ease;
+        }
+
+        .box {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            transition: all 0.05s linear;
+            color: #fff;
+        }
+
+        .player {
+            background: #ff4444;
+            z-index: 2;
+        }
+
+        #intro-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #fff;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 1s ease-in-out;
+            z-index: 1001;
+        }
+    </style>
+</head>
+<body>
+    <div id="intro-text">Behold, I go forward, but he is not there,</div>
+    <div id="game-container">
+        <div id="game-world"></div>
+    </div>
+
+    <script>
+        class Game {
+            constructor() {
+                this.boxSize = 15;
+                this.playerSize = 2;
+                this.matrixSize = 50;
+                this.container = document.getElementById('game-container');
+                this.world = document.getElementById('game-world');
+                this.boxes = [];
+                this.player = null;
+                this.isMoving = false;
+                this.bibleVerse = "Behold, I go forward, but he is not there, and backward, but I do not perceive him; on the left hand when he is working, I do not behold him; he turns to the right hand, but I do not see him. Yet he knows the way that I take; when he has tried me, I shall come out as gold.";
+                this.crypticMessages = [
+                    "THE VOID WHISPERS",
+                    "SHADOWS DANCE",
+                    "TIME UNRAVELS",
+                    "REALITY BENDS",
+                    "SEEK THE UNSEEN"
+                ];
+
+                this.updateGridSize();
+                window.addEventListener('resize', () => {
+                    this.updateGridSize();
+                    this.init();
+                });
+
+                this.showIntro();
+            }
+
+            showIntro() {
+                const introText = document.getElementById('intro-text');
+                
+                introText.style.opacity = '1';
+                introText.style.display = 'block';
+
+                setTimeout(() => {
+                    introText.style.opacity = '0';
+                    setTimeout(() => {
+                        introText.style.display = 'none';
+                        this.init();
+                        this.setupEventListeners();
+                        setTimeout(() => {
+                            this.startSentientInkBehavior();
+                        }, 10000); // Start effects after 10 seconds
+                    }, 1000);
+                }, 1000);
+            }
+
+            updateGridSize() {
+                this.gridSize = {
+                    width: Math.floor(window.innerWidth / this.boxSize),
+                    height: Math.floor(window.innerHeight / this.boxSize)
+                };
+            }
+
+            init() {
+                this.world.innerHTML = '';
+                this.boxes = [];
+
+                const startX = Math.floor((this.gridSize.width - this.matrixSize) / 2);
+                const startY = Math.floor((this.gridSize.height - this.matrixSize) / 2);
+                
+                this.player = this.createPlayer(startX + Math.floor(this.matrixSize/2), startY + Math.floor(this.matrixSize/2));
+
+                let verseIndex = 0;
+                let gridChars = [];
+
+                for (let y = 0; y < this.matrixSize; y++) {
+                    for (let x = 0; x < this.matrixSize; x++) {
+                        if (verseIndex >= this.bibleVerse.length) {
+                            verseIndex = 0;
+                        }
+                        gridChars.push(this.bibleVerse[verseIndex]);
+                        verseIndex++;
+                    }
+                }
+
+                for (let y = 0; y < this.matrixSize; y++) {
+                    for (let x = 0; x < this.matrixSize; x++) {
+                        const char = gridChars[y * this.matrixSize + x];
+                        if (char !== ' ') {
+                            this.createBox(startX + x, startY + y, char);
+                        }
+                    }
+                }
+
+                this.updateCamera();
+            }
+
+            createPlayer(x, y) {
+                const playerElement = document.createElement('div');
+                playerElement.className = 'box player';
+                playerElement.textContent = '';
+                this.updatePlayerSize(playerElement, x, y);
+                this.world.appendChild(playerElement);
+
+                return {
+                    element: playerElement,
+                    x: x,
+                    y: y
+                };
+            }
+
+            createBox(x, y, letter) {
+                const box = document.createElement('div');
+                box.className = 'box';
+                box.textContent = letter;
+                box.style.left = `${x * this.boxSize}px`;
+                box.style.top = `${y * this.boxSize}px`;
+                this.world.appendChild(box);
+
+                const boxObj = {
+                    element: box,
+                    x: x,
+                    y: y,
+                    letter: letter
+                };
+
+                this.boxes.push(boxObj);
+                return boxObj;
+            }
+
+            updatePlayerSize(element, x, y) {
+                element.style.width = `${this.playerSize * this.boxSize}px`;
+                element.style.height = `${this.playerSize * this.boxSize}px`;
+                element.style.left = `${x * this.boxSize}px`;
+                element.style.top = `${y * this.boxSize}px`;
+            }
+
+            movePlayer(dx, dy) {
+                if (this.isMoving) return;
+                
+                let newX = this.player.x + dx;
+                let newY = this.player.y + dy;
+
+                this.isMoving = true;
+
+                let boxesToPush = new Set();
+                for (let px = 0; px < this.playerSize; px++) {
+                    for (let py = 0; py < this.playerSize; py++) {
+                        let checkX = newX + px;
+                        let checkY = newY + py;
+                        this.findConnectedBoxes(checkX, checkY, dx, dy)
+                            .forEach(box => boxesToPush.add(box));
+                    }
+                }
+
+                boxesToPush = Array.from(boxesToPush);
+
+                boxesToPush.forEach(box => {
+                    box.x += dx;
+                    box.y += dy;
+                    box.element.style.left = `${box.x * this.boxSize}px`;
+                    box.element.style.top = `${box.y * this.boxSize}px`;
+                });
+
+                this.player.x = newX;
+                this.player.y = newY;
+                this.updatePlayerSize(this.player.element, newX, newY);
+                this.updateCamera();
+
+                setTimeout(() => {
+                    this.isMoving = false;
+                }, 50);
+            }
+
+            updateCamera() {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                const playerCenterX = (this.player.x + this.playerSize / 2) * this.boxSize;
+                const playerCenterY = (this.player.y + this.playerSize / 2) * this.boxSize;
+                const offsetX = centerX - playerCenterX;
+                const offsetY = centerY - playerCenterY;
+                this.world.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+            }
+
+            findConnectedBoxes(x, y, dx, dy) {
+                let result = [];
+                let box = this.boxes.find(b => b.x === x && b.y === y);
+                
+                if (box) {
+                    result.push(box);
+                    let nextX = x + dx;
+                    let nextY = y + dy;
+                    
+                    while (true) {
+                        let nextBox = this.boxes.find(b => b.x === nextX && b.y === nextY);
+                        if (!nextBox) break;
+                        
+                        result.push(nextBox);
+                        nextX += dx;
+                        nextY += dy;
+                    }
+                }
+
+                return result;
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    switch (e.key) {
+                        case 'ArrowLeft':
+                            this.movePlayer(-1, 0);
+                            break;
+                        case 'ArrowRight':
+                            this.movePlayer(1, 0);
+                            break;
+                        case 'ArrowUp':
+                            this.movePlayer(0, -1);
+                            break;
+                        case 'ArrowDown':
+                            this.movePlayer(0, 1);
+                            break;
+                    }
+                });
+
+                let touchStartX, touchStartY;
+
+                this.container.addEventListener('touchstart', (e) => {
+                    touchStartX = e.touches[0].clientX;
+                    touchStartY = e.touches[0].clientY;
+                });
+
+                this.container.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                });
+
+                this.container.addEventListener('touchend', (e) => {
+                    const touchEndX = e.changedTouches[0].clientX;
+                    const touchEndY = e.changedTouches[0].clientY;
+
+                    const dx = touchEndX - touchStartX;
+                    const dy = touchEndY - touchStartY;
+
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        if (dx > 0) {
+                            this.movePlayer(1, 0);
+                        } else {
+                            this.movePlayer(-1, 0);
+                        }
+                    } else {
+                        if (dy > 0) {
+                            this.movePlayer(0, 1);
+                        } else {
+                            this.movePlayer(0, -1);
+                        }
+                    }
+                });
+            }
+
+            startSentientInkBehavior() {
+                this.moveSentientInk();
+                setInterval(() => {
+                    if (Math.random() < 0.2) { // 20% chance to form a message every 10 seconds
+                        this.formCrypticMessage();
+                    }
+                }, 10000);
+            }
+
+            moveSentientInk() {
+                const moveOneBox = () => {
+                    const availableBoxes = this.boxes.filter(box => {
+                        const dx = Math.floor(Math.random() * 3) - 1;
+                        const dy = Math.floor(Math.random() * 3) - 1;
+                        const newX = box.x + dx;
+                        const newY = box.y + dy;
+                        return !this.boxes.some(b => b.x === newX && b.y === newY);
+                    });
+
+                    if (availableBoxes.length > 0) {
+                        const box = availableBoxes[Math.floor(Math.random() * availableBoxes.length)];
+                        const dx = Math.floor(Math.random() * 3) - 1;
+                        const dy = Math.floor(Math.random() * 3) - 1;
+                        const newX = box.x + dx;
+                        const newY = box.y + dy;
+
+                        box.x = newX;
+                        box.y = newY;
+                        box.element.style.left = `${box.x * this.boxSize}px`;
+                        box.element.style.top = `${box.y * this.boxSize}px`;
+                    }
+
+                    const delay = Math.random() * 300 + 100; // Random delay between 100ms and 400ms
+                    setTimeout(moveOneBox, delay);
+                };
+
+                moveOneBox();
+            }
+
+            formCrypticMessage() {
+                const message = this.crypticMessages[Math.floor(Math.random() * this.crypticMessages.length)];
+                const startX = Math.floor(Math.random() * (this.matrixSize - message.length));
+                const startY = Math.floor(Math.random() * this.matrixSize);
+
+                for (let i = 0; i < message.length; i++) {
+                    const box = this.boxes.find(b => b.x === startX + i && b.y === startY);
+                    if (box) {
+                        box.letter = message[i];
+                        box.element.textContent = message[i];
+                        box.element.style.color = '#ff00ff';
+                        setTimeout(() => {
+                            box.element.style.color = '#fff';
+                        }, 5000);
+                    }
+                }
+            }
+        }
+
+        let game = new Game();
+    </script>
+</body>
+</html>
