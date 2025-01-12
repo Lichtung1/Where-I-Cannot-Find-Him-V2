@@ -46,7 +46,7 @@
             z-index: 2;
         }
 
-        #intro-text {
+        #intro-text, #instructions-text {
             position: fixed;
             top: 50%;
             left: 50%;
@@ -54,9 +54,9 @@
             font-size: 24px;
             color: #fff;
             text-align: center;
-            opacity: 1;
             transition: opacity 1s ease-in-out;
             z-index: 1001;
+            line-height: 1.5;
         }
 
         #touch-controls {
@@ -75,10 +75,31 @@
         .touch-area {
             pointer-events: auto;
         }
+        @media (max-width: 768px) {
+            .box {
+                width: 10px;  /* Smaller boxes for mobile */
+                height: 10px;
+                font-size: 8px;  /* Smaller text */
+            }
+
+            #touch-controls {
+                opacity: 0.2;  /* Semi-transparent touch controls */
+                background: rgba(255, 255, 255, 0.1);
+            }
+
+            .touch-area {
+                border: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            #intro-text {
+                font-size: 16px;  /* Smaller intro text */
+            }
+        }
+        
     </style>
 </head>
 <body>
-    <div id="intro-text">Behold, I go forward, but he is not there,</div>
+    <div id="intro-text">Behold, I go forward, but he is not there...</div>
     <div id="game-container">
         <div id="game-world"></div>
     </div>
@@ -97,9 +118,11 @@
     <script>
         class Game {
             constructor() {
-                this.boxSize = 15;
-                this.playerSize = 2;
-                this.matrixSize = 50;
+                this.isMobile = window.innerWidth <= 768;
+                this.playerSize = 2;  // Set once
+                this.boxSize = this.isMobile ? 10 : 15;  // Set once
+                this.matrixSize = this.isMobile ? 30 : 50;  // Set once
+                
                 this.container = document.getElementById('game-container');
                 this.world = document.getElementById('game-world');
                 this.boxes = [];
@@ -107,13 +130,6 @@
                 this.isMoving = false;
                 this.moveInterval = null;
                 this.bibleVerse = "Oh, that I knew where I might find him! That I might come even to his dwelling! I would lay my case before him and fill my mouth with arguments. I would know what he would answer me and understand what he would say to me... Behold, I go forward, but he is not there, and backward, but I do not perceive him; on the left hand when he is working, I do not behold him; he turns to the right hand, but I do not see him. After this Job opened his mouth and cursed the day of his birth. And Job said: 'Let the day perish on which I was born, and the night that said, \"A man is conceived.\" Let that day be darkness! May God above not seek it, nor light shine upon it... Why did I not die at birth, come out from the womb and expire? Then the LORD answered Job out of the whirlwind and said: 'Who is this that darkens counsel by words without knowledge? Dress for action like a man; I will question you, and you make it known to me. Where were you when I laid the foundation of the earth? Tell me, if you have understanding.'";
-                this.crypticMessages = [
-                    "THE VOID WHISPERS",
-                    "SHADOWS DANCE",
-                    "TIME UNRAVELS",
-                    "REALITY BENDS",
-                    "SEEK THE UNSEEN"
-                ];
 
                 this.updateGridSize();
                 window.addEventListener('resize', () => {
@@ -126,24 +142,41 @@
 
             showIntro() {
                 const introText = document.getElementById('intro-text');
+                const isMobile = window.innerWidth <= 768;
                 
                 introText.style.opacity = '1';
                 introText.style.display = 'block';
 
                 setTimeout(() => {
                     introText.style.opacity = '0';
+                    
                     setTimeout(() => {
-                        introText.style.display = 'none';
-                        this.init();
-                        this.setupEventListeners();
+                        introText.textContent = isMobile ? 
+                            "Touch the screen to go forward" : 
+                            "Use arrow keys to go forward";
+                        introText.style.opacity = '1';
+
                         setTimeout(() => {
-                            this.startSentientInkBehavior();
-                        }, 10000); // Start effects after 10 seconds
+                            introText.style.opacity = '0';
+                            setTimeout(() => {
+                                introText.textContent = "Behold, I go forward, but he is not there...";
+                                introText.style.display = 'none';
+                                this.init();
+                                this.setupEventListeners();
+                            }, 1000);
+                        }, 1500);
                     }, 1000);
-                }, 1000);
+                }, 1500);
             }
 
             updateGridSize() {
+                this.isMobile = window.innerWidth <= 768;
+
+                this.playerSize = 2; 
+
+                this.boxSize = this.isMobile ? 10 : 15;
+                this.matrixSize = this.isMobile ? 30 : 50;
+
                 this.gridSize = {
                     width: Math.floor(window.innerWidth / this.boxSize),
                     height: Math.floor(window.innerHeight / this.boxSize)
@@ -157,7 +190,9 @@
                 const startX = Math.floor((this.gridSize.width - this.matrixSize) / 2);
                 const startY = Math.floor((this.gridSize.height - this.matrixSize) / 2);
                 
-                this.player = this.createPlayer(startX + Math.floor(this.matrixSize/2), startY + Math.floor(this.matrixSize/2));
+                this.player = this.createPlayer(
+                    startX + Math.floor(this.matrixSize/2)-1, 
+                    startY + Math.floor(this.matrixSize/2));
 
                 let verseIndex = 0;
                 let gridChars = [];
@@ -360,63 +395,6 @@
                 if (this.moveInterval) {
                     clearInterval(this.moveInterval);
                     this.moveInterval = null;
-                }
-            }
-
-            startSentientInkBehavior() {
-                this.moveSentientInk();
-                setInterval(() => {
-                    if (Math.random() < 0.2) { // 20% chance to form a message every 10 seconds
-                        this.formCrypticMessage();
-                    }
-                }, 10000);
-            }
-
-            moveSentientInk() {
-                const moveOneBox = () => {
-                    const availableBoxes = this.boxes.filter(box => {
-                        const dx = Math.floor(Math.random() * 3) - 1;
-                        const dy = Math.floor(Math.random() * 3) - 1;
-                        const newX = box.x + dx;
-                        const newY = box.y + dy;
-                        return !this.boxes.some(b => b.x === newX && b.y === newY);
-                    });
-
-                    if (availableBoxes.length > 0) {
-                        const box = availableBoxes[Math.floor(Math.random() * availableBoxes.length)];
-                        const dx = Math.floor(Math.random() * 3) - 1;
-                        const dy = Math.floor(Math.random() * 3) - 1;
-                        const newX = box.x + dx;
-                        const newY = box.y + dy;
-
-                        box.x = newX;
-                        box.y = newY;
-                        box.element.style.left = `${box.x * this.boxSize}px`;
-                        box.element.style.top = `${box.y * this.boxSize}px`;
-                    }
-
-                    const delay = Math.random() * 300 + 100; // Random delay between 100ms and 400ms
-                    setTimeout(moveOneBox, delay);
-                };
-
-                moveOneBox();
-            }
-
-            formCrypticMessage() {
-                const message = this.crypticMessages[Math.floor(Math.random() * this.crypticMessages.length)];
-                const startX = Math.floor(Math.random() * (this.matrixSize - message.length));
-                const startY = Math.floor(Math.random() * this.matrixSize);
-
-                for (let i = 0; i < message.length; i++) {
-                    const box = this.boxes.find(b => b.x === startX + i && b.y === startY);
-                    if (box) {
-                        box.letter = message[i];
-                        box.element.textContent = message[i];
-                        box.element.style.color = '#ff00ff';
-                        setTimeout(() => {
-                            box.element.style.color = '#fff';
-                        }, 5000);
-                    }
                 }
             }
         }
