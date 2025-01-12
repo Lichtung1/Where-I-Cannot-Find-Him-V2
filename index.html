@@ -58,12 +58,40 @@
             transition: opacity 1s ease-in-out;
             z-index: 1001;
         }
+
+        #touch-controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr 1fr;
+            z-index: 1000;
+            pointer-events: none;
+        }
+
+        .touch-area {
+            pointer-events: auto;
+        }
     </style>
 </head>
 <body>
     <div id="intro-text">Behold, I go forward, but he is not there,</div>
     <div id="game-container">
         <div id="game-world"></div>
+    </div>
+    <div id="touch-controls">
+        <div class="touch-area" data-direction="up-left"></div>
+        <div class="touch-area" data-direction="up"></div>
+        <div class="touch-area" data-direction="up-right"></div>
+        <div class="touch-area" data-direction="left"></div>
+        <div class="touch-area" data-direction="center"></div>
+        <div class="touch-area" data-direction="right"></div>
+        <div class="touch-area" data-direction="down-left"></div>
+        <div class="touch-area" data-direction="down"></div>
+        <div class="touch-area" data-direction="down-right"></div>
     </div>
 
     <script>
@@ -77,6 +105,7 @@
                 this.boxes = [];
                 this.player = null;
                 this.isMoving = false;
+                this.moveInterval = null;
                 this.bibleVerse = "Behold, I go forward, but he is not there, and backward, but I do not perceive him; on the left hand when he is working, I do not behold him; he turns to the right hand, but I do not see him. Yet he knows the way that I take; when he has tried me, I shall come out as gold.";
                 this.crypticMessages = [
                     "THE VOID WHISPERS",
@@ -282,38 +311,56 @@
                     }
                 });
 
-                let touchStartX, touchStartY;
+                const touchControls = document.getElementById('touch-controls');
+                const touchAreas = touchControls.getElementsByClassName('touch-area');
 
-                this.container.addEventListener('touchstart', (e) => {
-                    touchStartX = e.touches[0].clientX;
-                    touchStartY = e.touches[0].clientY;
-                });
+                for (let area of touchAreas) {
+                    area.addEventListener('touchstart', (e) => {
+                        e.preventDefault();
+                        this.handleTouchStart(area.dataset.direction);
+                    });
 
-                this.container.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                });
+                    area.addEventListener('touchend', (e) => {
+                        e.preventDefault();
+                        this.handleTouchEnd();
+                    });
+                }
+            }
 
-                this.container.addEventListener('touchend', (e) => {
-                    const touchEndX = e.changedTouches[0].clientX;
-                    const touchEndY = e.changedTouches[0].clientY;
+            handleTouchStart(direction) {
+                this.stopContinuousMove();
+                this.startContinuousMove(direction);
+            }
 
-                    const dx = touchEndX - touchStartX;
-                    const dy = touchEndY - touchStartY;
+            handleTouchEnd() {
+                this.stopContinuousMove();
+            }
 
-                    if (Math.abs(dx) > Math.abs(dy)) {
-                        if (dx > 0) {
-                            this.movePlayer(1, 0);
-                        } else {
-                            this.movePlayer(-1, 0);
-                        }
-                    } else {
-                        if (dy > 0) {
-                            this.movePlayer(0, 1);
-                        } else {
-                            this.movePlayer(0, -1);
-                        }
-                    }
-                });
+            startContinuousMove(direction) {
+                let dx = 0, dy = 0;
+                switch (direction) {
+                    case 'up': dy = -1; break;
+                    case 'down': dy = 1; break;
+                    case 'left': dx = -1; break;
+                    case 'right': dx = 1; break;
+                    case 'up-left': dx = -1; dy = -1; break;
+                    case 'up-right': dx = 1; dy = -1; break;
+                    case 'down-left': dx = -1; dy = 1; break;
+                    case 'down-right': dx = 1; dy = 1; break;
+                }
+
+                if (dx !== 0 || dy !== 0) {
+                    this.moveInterval = setInterval(() => {
+                        this.movePlayer(dx, dy);
+                    }, 100); // Adjust this value to change movement speed
+                }
+            }
+
+            stopContinuousMove() {
+                if (this.moveInterval) {
+                    clearInterval(this.moveInterval);
+                    this.moveInterval = null;
+                }
             }
 
             startSentientInkBehavior() {
